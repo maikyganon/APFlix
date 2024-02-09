@@ -1,8 +1,6 @@
-import { NextApiRequest, NextApiResponse } from 'next'
+const apiKey = process.env.OPENAI_API_KEY
 
-export default async function createMessage(req: NextApiRequest, res: NextApiResponse) {
-  const { messages } = req.body
-  const apiKey = process.env.OPENAI_API_KEY
+export async function getRecommendationService(messages: any) {
   const url = 'https://api.openai.com/v1/chat/completions'
 
   const body = JSON.stringify({
@@ -21,8 +19,8 @@ export default async function createMessage(req: NextApiRequest, res: NextApiRes
       body
     })
     const data = await response.json()
-    res.status(200).json({ data })
+    return data
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    throw new Error(error.message)
   }
 }

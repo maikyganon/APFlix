@@ -2,7 +2,7 @@ import { ChatCompletionRequestMessage } from 'openai'
 
 export const sendMessage = async (messages: ChatCompletionRequestMessage[]) => {
   try {
-    const response = await fetch('/api/createMessage', {
+    const response = await fetch('/api/getRecommendation', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
