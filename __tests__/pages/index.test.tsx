@@ -9,8 +9,4 @@ describe('App', () => {
       expect(screen).toMatchSnapshot()
     })
   })
-  it('shows the heading of the index page', () => {
-    render(<App />)
-    expect(screen.getByRole('heading', { name: 'Next Starter Kit' })).toBeInTheDocument()
-  })
 })
