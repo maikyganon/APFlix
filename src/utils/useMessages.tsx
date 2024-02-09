@@ -49,7 +49,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       setMessages(newMessages)
 
       const { data } = await sendMessage(newMessages)
-      const reply = data.choices[0].message
+      const reply = data
 
       // Add the assistant message to the state
       setMessages([...newMessages, reply])
