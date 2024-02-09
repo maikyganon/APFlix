@@ -1,5 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { createStuffDocumentsChain } from 'langchain/chains/combine_documents'
+import { Document } from '@langchain/core/documents'
 // const apiKey = process.env.OPENAI_API_KEY
 
 const model = new ChatOpenAI({
@@ -8,7 +10,9 @@ const model = new ChatOpenAI({
 })
 
 const prompt = ChatPromptTemplate.fromTemplate(`
-    according to my description, recommend me a movie from this list -
+    according to my description, recommend me a movie from this list (under the list, in the "extra movies" section
+        there might be more info about movies you might dont know , you can recommend from there too, 
+        even if the movie in the "extra movies" is not in the list):
     1. The Silence of the Lambs
     2. Pulp Fiction
     3. The Shawshank Redemption
@@ -19,10 +23,17 @@ const prompt = ChatPromptTemplate.fromTemplate(`
     8. Titanic
     9. The Matrix
     10. Forrest Gump
-    my description: {input} 
+    extra movies: {context}
+    my description: {input}
 `)
 
-const chain = prompt.pipe(model)
+// const prompt = ChatPromptTemplate.fromTemplate(`
+//     answer the following question:
+//     context: {context}
+//     question: {input}
+// `)
+
+// const chain = prompt.pipe(model)
 
 export async function getRecommendationService(messages: any) {
   const recommendationRes = await invokeRecommendation(messages[messages.length - 1]?.content)
@@ -52,12 +63,26 @@ export async function getRecommendationService(messages: any) {
 }
 
 export async function invokeRecommendation(description: string) {
-  const response = await chain.invoke({
-    input: description
-  })
-  const recommendation = {
-    content: response?.content,
-    role: 'assistant'
+  try {
+    const chain = await createStuffDocumentsChain({
+      llm: model,
+      prompt
+    })
+
+    // Document
+    const documentA = new Document({
+      pageContent: `Aquaman and the Lost Kingdom - Black Manta seeks revenge on Aquaman for his father's death. Wielding the Black Trident's power, he becomes a formidable foe. To defend Atlantis, Aquaman forges an alliance with his imprisoned brother. They must protect the kingdom.`
+    })
+    const response = await chain.invoke({
+      input: description,
+      context: [documentA]
+    })
+    const recommendation = {
+      content: response,
+      role: 'assistant'
+    }
+    return recommendation
+  } catch (error: any) {
+    throw new Error(error.message)
   }
-  return recommendation
 }
