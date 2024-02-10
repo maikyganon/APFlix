@@ -2,10 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { getRecommendationService } from '../../services/getRecommendationService'
 
 export default async function getRecommendation(req: NextApiRequest, res: NextApiResponse) {
-  const { messages } = req.body
-
   try {
-    const data = await getRecommendationService(messages)
+    const data = await getRecommendationService(req.body.messages)
     res.status(200).json({ data })
   } catch (error: any) {
     res.status(200).json({

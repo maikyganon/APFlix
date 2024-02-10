@@ -3,8 +3,13 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { createStuffDocumentsChain } from 'langchain/chains/combine_documents'
 import { Document } from '@langchain/core/documents'
 import { CheerioWebBaseLoader } from 'langchain/document_loaders/web/cheerio'
+import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
+import { OpenAIEmbeddings} from '@langchain/openai'
+import { MemoryVectorStore } from 'langchain/vectorstores/memory'
+import { createRetrievalChain } from 'langchain/chains/retrieval'
 import cheerio from 'cheerio'
 import axios from 'axios';
+
 
 const model = new ChatOpenAI({
   modelName: 'gpt-3.5-turbo',
@@ -14,7 +19,8 @@ const model = new ChatOpenAI({
 const promptRecommendation = ChatPromptTemplate.fromTemplate(`
     according to my description, recommend me a movie from this list (under the list, in the "extra movies" section
         there might be more info about movies you might dont know , you can recommend from there too, 
-        even if the movie in the "extra movies" is not in the list):
+        even if the movie in the "extra movies" is not in the list). under the "extra movies" section, there
+        is a "context" section, you can use that to get more info about the movies from "extra movies" section.:
     1. The Silence of the Lambs
     2. Pulp Fiction
     3. The Shawshank Redemption
@@ -25,7 +31,8 @@ const promptRecommendation = ChatPromptTemplate.fromTemplate(`
     8. Titanic
     9. The Matrix
     10. Forrest Gump
-    extra movies: {context}
+    extra movies: {extramovies}
+    context: {context}
     my description: {input}
 `)
 const seperator = "<@!$@!seperator$@#%@%!#$@!@>"
@@ -38,92 +45,101 @@ const promptSeperateDescriptionAndLinks = ChatPromptTemplate.fromTemplate(`
 
     the message is: {input}
 `)
-// const prompt = ChatPromptTemplate.fromTemplate(`
-//     answer the following question:
-//     context: {context}
-//     question: {input}
-// `)
 
-// const chain = prompt.pipe(model)
 
 export async function getRecommendationService(messages: any) {
     const {description, links } = await invokeSeperateDescriptionAndLinks(messages[messages.length - 1]?.content)
     const recommendationRes = await invokeRecommendation(description, links)
     return recommendationRes
-  // const url = 'https://api.openai.com/v1/chat/completions'
-
-  // const body = JSON.stringify({
-  //     messages,
-  //     model: 'gpt-3.5-turbo',
-  //     stream: false
-  // })
-
-  // try {
-  //     const response = await fetch(url, {
-  //         method: 'POST',
-  //         headers: {
-  //             'Content-Type': 'application/json',
-  //             Authorization: `Bearer ${apiKey}`
-  //         },
-  //         body
-  //     })
-  //     const data = await response.json()
-  //     return data
-  // } catch (error: any) {
-  //     throw new Error(error.message)
-  // }
 }
+
+async function getDocsFromLinks(links: string[]) {
+  const docs = [];
+  const splitDocsCrossLinks = [];
+
+  for (let i = 0; i < links.length; i++) {
+    try {
+      // use basic scraping from imdb to get the title, description and storyline of the movie from the link
+      if (!links[i].includes('www.imdb.com/title'))
+        continue;
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'Accept-Language': 'en-US,en;q=0.9',
+      };
+
+      let response = await axios.get(links[i], { headers });
+      const html = response.data;
+      const fullHtml = cheerio.load(html);
+      let movieTitle = fullHtml('title').text();
+      let movieDescription = fullHtml('meta[name="description"]').attr('content');
+      let movieStoryline = fullHtml('.ipc-overflowText--children').text();
+
+      // Combine all movie details into a summary
+      let movieSummary = `Title: ${movieTitle}\nDescription: ${movieDescription}\nStoryline: ${movieStoryline}`;
+      docs.push(new Document({
+        pageContent: movieSummary
+      }));
+
+      //create splited documents for the later embedding and retrieval process
+
+      // create Document from all the html content
+      const documentA = new Document({
+        pageContent: fullHtml('body').toString()
+      });
+
+      //split the document into smaller documents
+      const splitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 200,
+        chunkOverlap: 20
+      });
+      const splitDocs = await splitter.splitDocuments([documentA]);
+      splitDocsCrossLinks.push(...splitDocs);
+
+    } catch (error: any) {
+      console.log(error.message);
+    }
+  }
+
+  return { docs, splitDocsCrossLinks };
+}
+
 
 export async function invokeRecommendation(description: string, links: string[] = []) {
   try {
-    let docs = []
-    for (let i = 0; i < links.length; i++) {
-      try {
-        if (!links[i].includes('www.imdb.com/title'))
-          continue
-        const headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-            'Accept-Language': 'en-US,en;q=0.9',
-        };
-        
-        let response = await axios.get(links[i], { headers });
-        const html = response.data;
-        const fullHtml = cheerio.load(html);
-        let movieTitle = fullHtml('title').text()
-        let movieDescription = fullHtml('meta[name="description"]').attr('content')
-        let movieStoryline = fullHtml('.ipc-overflowText--children').text()
-  
-          // Combine all movie details into a summary
-        let movieSummary = `Title: ${movieTitle}\nDescription: ${movieDescription}\nStoryline: ${movieStoryline}`;
-        docs.push(new Document({
-          pageContent: movieSummary
-        }))
-        // const loader = new CheerioWebBaseLoader(links[i])
-        // let loadedDocs = await loader.load()
-        // docs.push(...loadedDocs)
-      } catch (error: any) {
-        console.log(error.message)
-      }
-    }
 
-    // const loaders = links.map(link => new CheerioWebBaseLoader(link))
-    // const loaderResults = await Promise.all(loaders.map(loader => loader.load()));
- 
+    // get the documents from the links
+    const { docs, splitDocsCrossLinks } = await getDocsFromLinks(links)
+    
+
     const chain = await createStuffDocumentsChain({
       llm: model,
       prompt: promptRecommendation
     })
 
-    // // Document
-    // const documentA = new Document({
-    //   pageContent: `Aquaman and the Lost Kingdom - Black Manta seeks revenge on Aquaman for his father's death. Wielding the Black Trident's power, he becomes a formidable foe. To defend Atlantis, Aquaman forges an alliance with his imprisoned brother. They must protect the kingdom.`
-    // })
-    const response = await chain.invoke({
-      input: description,
-      context: docs
+    //Embed the documents and store the embeddings in inmemory storage
+    const embeddings = new OpenAIEmbeddings()
+    const vectorStore = await MemoryVectorStore.fromDocuments(
+      splitDocsCrossLinks,
+      embeddings
+    );
+
+    // retrieve the most relevant parts from the html
+    const retriever = vectorStore.asRetriever({
+      k: 1
     })
+
+    const retrieverChain = await createRetrievalChain({
+      combineDocsChain: chain,
+      retriever: retriever
+    })
+
+    const response = await retrieverChain.invoke({
+      input: description,
+      extramovies: docs
+    })
+    
     const recommendation = {
-      content: response,
+      content: response?.answer,
       role: 'assistant'
     }
     return recommendation
