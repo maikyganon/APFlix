@@ -24,7 +24,11 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       }
       const welcomeMessage: ChatCompletionRequestMessage = {
         role: 'assistant',
-        content: 'Hi, How can I help you today?'
+        content: `Welcome to APFlix! 🎉 I'm your movie recommendation assistant.
+         Share a bit about yourself and what you're in the mood for. 
+         Don't forget, you can also add IMDb links for any recently released
+          movies you're interested in. Let's make movie night awesome! 🍿
+        `
       }
       setMessages([systemMessage, welcomeMessage])
     }
@@ -49,7 +53,7 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       setMessages(newMessages)
 
       const { data } = await sendMessage(newMessages)
-      const reply = data.choices[0].message
+      const reply = data
 
       // Add the assistant message to the state
       setMessages([...newMessages, reply])
