@@ -1,10 +1,10 @@
-# APFlix - movie reco
+# APFlix - movie recommendation
 
 APFlix is a movie recommendation system that helps users discover new movies based on their preferences. Whether you're looking for action-packed thrillers or heartwarming romantic comedies, APFlix has got you covered.
 
 # Demo
 
-- For Demo go to - https://www.maikyganon.com/
+- For Demo go to - http://www.maikyganon.com/
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ APFlix is a movie recommendation system that helps users discover new movies bas
 
 1. Next.js - I selected Next.js for efficient and convenient full-stack development
 2. LangChain - For LLM quering, embadding and retrieval
-3. **Deployment** - The system is deplyed to AWS ec2. Fill free to visit https://www.maikyganon.com/ for demo. 
+3. **Deployment** - The system is deplyed to AWS ec2. Fill free to visit http://www.maikyganon.com/ for demo. 
 
 ## How does it work?
 
