@@ -24,10 +24,10 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       }
       const welcomeMessage: ChatCompletionRequestMessage = {
         role: 'assistant',
-        content: `"Hi there! 🎬 Ready to discover your next favorite movie?
+        content: `Welcome to APFlix! 🎉 I'm your movie recommendation assistant.
          Share a bit about yourself and what you're in the mood for. 
          Don't forget, you can also add IMDb links for any recently released
-          movies you're interested in. Let's make movie night awesome! 🍿"
+          movies you're interested in. Let's make movie night awesome! 🍿
         `
       }
       setMessages([systemMessage, welcomeMessage])

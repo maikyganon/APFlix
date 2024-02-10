@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@apideck/components": "^0.12.3",
+    "cheerio": "*",
     "langchain": "^0.1.17",
     "next": "^13.0.6",
     "openai": "^3.2.1",

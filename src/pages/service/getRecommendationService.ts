@@ -2,14 +2,13 @@ import { ChatOpenAI } from '@langchain/openai'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { createStuffDocumentsChain } from 'langchain/chains/combine_documents'
 import { Document } from '@langchain/core/documents'
-// const apiKey = process.env.OPENAI_API_KEY
 
 const model = new ChatOpenAI({
   modelName: 'gpt-3.5-turbo'
-  // temperature: 0.7,
+
 })
 
-const prompt = ChatPromptTemplate.fromTemplate(`
+const promptRecommendation = ChatPromptTemplate.fromTemplate(`
     according to my description, recommend me a movie from this list (under the list, in the "extra movies" section
         there might be more info about movies you might dont know , you can recommend from there too, 
         even if the movie in the "extra movies" is not in the list):
@@ -26,7 +25,15 @@ const prompt = ChatPromptTemplate.fromTemplate(`
     extra movies: {context}
     my description: {input}
 `)
+const seperator = "<@!$@!seperator$@#%@%!#$@!@>"
+const promptSeperateDescriptionAndLinks = ChatPromptTemplate.fromTemplate(`
+    i want to get all the links in the message(if there are links) and the description, i 
+    want it in the following format:
+    links: www.link1.com, www.link2.com, www.link3.com
+    ${seperator}description: the user description
 
+    the message is: {input}
+`)
 // const prompt = ChatPromptTemplate.fromTemplate(`
 //     answer the following question:
 //     context: {context}
@@ -36,8 +43,9 @@ const prompt = ChatPromptTemplate.fromTemplate(`
 // const chain = prompt.pipe(model)
 
 export async function getRecommendationService(messages: any) {
-  const recommendationRes = await invokeRecommendation(messages[messages.length - 1]?.content)
-  return recommendationRes
+    const {description, links } = await invokeSeperateDescriptionAndLinks(messages[messages.length - 1]?.content)
+    const recommendationRes = await invokeRecommendation(description, links)
+    return recommendationRes
   // const url = 'https://api.openai.com/v1/chat/completions'
 
   // const body = JSON.stringify({
@@ -62,11 +70,11 @@ export async function getRecommendationService(messages: any) {
   // }
 }
 
-export async function invokeRecommendation(description: string) {
+export async function invokeRecommendation(description: string, links: string[] = []) {
   try {
     const chain = await createStuffDocumentsChain({
       llm: model,
-      prompt
+      prompt: promptRecommendation
     })
 
     // Document
@@ -85,4 +93,20 @@ export async function invokeRecommendation(description: string) {
   } catch (error: any) {
     throw new Error(error.message)
   }
+}
+
+export async function invokeSeperateDescriptionAndLinks(message: string) {
+    try {
+        const chain = promptSeperateDescriptionAndLinks.pipe(model)
+        const response = await chain.invoke({
+            input: message
+        })
+        const content = response.content.toString();
+        const links = content.split(seperator)[0].replace('links:', '').trim().split(',').map((link: string) => link.trim())
+        const description = content.split(seperator)[1].replace('description:', '').trim();
+        return { description, links };
+        
+    } catch (error: any) {
+        throw new Error(error.message)
+    }
 }
